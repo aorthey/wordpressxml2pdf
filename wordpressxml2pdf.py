@@ -1,10 +1,22 @@
+#!/usr/bin/python
 import xml.etree.ElementTree
 from subprocess import call
 from bs4 import BeautifulSoup
 import re
 import sys
 import os.path
-fname = 'motionplanning.wordpress.2016-12-22.xml'
+
+if len(sys.argv) != 2:
+  print "#"*80
+  print "usage: wordpressxml2pdf [filename.xml]"
+  print "#"*80
+  print ""
+  print "your input:"
+  print sys.argv
+  print "#"*80
+  sys.exit(0)
+
+fname = sys.argv[1]
 basename = os.path.basename(fname)
 basename = os.path.splitext(basename)
 texname = basename[0]+'.tex'
@@ -45,6 +57,7 @@ tex = open(texname,'w')
 tex.write("\\documentclass[11pt]{article}\n")
 
 tex.write("\\usepackage{amsmath}\n")
+tex.write("\\usepackage{amsfonts}\n")
 tex.write("\\begin{document}\n")
 tex.write("\\tableofcontents\n")
 tex.write("\\clearpage\n")
@@ -64,7 +77,15 @@ for post in reversed(posts):
   text = re.sub(r'<a.*href=\"(.*)\".*>(.*)</a>',r'\2 (\1)\n',text)
   text = re.sub(r"\&nbsp;",r"",text)
   text = re.sub(r"\&gt;",r">",text)
+  text = re.sub(r"\&lt;",r"<",text)
+  text = re.sub(r"\&amp;",r"\&",text)
+  text = re.sub(r"\&quot;",r"",text)
   text = re.sub(r"_",r"\\_",text)
+  text = re.sub(r"<h3>(.*)</h3>",r"\n{\\bf{\1}}\n\n",text)
+  text = re.sub(r"<h4>(.*)</h4>",r"\n{\\bf{\1}}\n\n",text)
+  text = re.sub(r"<h5>(.*)</h5>",r"\n{\\bf{\1}}\n\n",text)
+  text = re.sub(r"<b>(.*)</b>",r"{\\bf{\1}}",text)
+  text = re.sub(r"<strong>(.*)</strong>",r"{\\bf{\1}}",text)
   #print text
   if re.search("<.*>(.*)<",text):
     reres = re.search("<.*>(.*)<.*>",text)
@@ -73,9 +94,10 @@ for post in reversed(posts):
     sys.exit(0)
   if re.search("\&",text):
     reres = re.search("\&.*;",text)
-    print "FOUND UNMATCHED TAG"
-    print reres.group(0)
-    sys.exit(0)
+    if reres:
+      print "FOUND UNMATCHED CHAR"
+      print reres.group(0)
+      sys.exit(0)
 
   title = re.sub(r"_",r"\\_",title)
 
@@ -87,6 +109,7 @@ tex.write("\\end{document}\n")
 tex.close()
 call(["rm", trashnamelog])
 call(["rm", trashnameaux])
+call(["pdflatex", texname])
 call(["pdflatex", texname])
 print "Created tex file: ",texname
 print "Created pdf file: ",pdfname

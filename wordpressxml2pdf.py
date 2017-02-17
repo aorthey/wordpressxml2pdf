@@ -107,6 +107,11 @@ for post in reversed(posts):
   text = re.sub(r'<p.*>(.*)',r'\1',text,re.DOTALL)
   text = re.sub(r'</p>',r'\n',text,re.DOTALL)
   text = re.sub(r"<em>",r"{\it{",text)
+
+  text = re.sub(r"<ul>",r"\\begin{enumerate}",text)
+  text = re.sub(r"</ul>",r"\\end{enumerate}",text)
+  text = re.sub(r"<li>",r"\\item ",text)
+  text = re.sub(r"</li>",r"\n",text)
   text = re.sub(r"</em>",r"}}",text)
   text = re.sub(r"\$latex",r"$",text)
   text = re.sub(r'<a.*href=\"(.*)\".*>(.*)</a>',r'\2 (\1)\n',text)

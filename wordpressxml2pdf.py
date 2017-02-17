@@ -27,26 +27,54 @@ trashnameaux = basename[0]+'.aux'
 e = xml.etree.ElementTree.parse(fname)
 root = e.getroot()
 
+def DateToStr(date):
+  m = re.match('^([A-Za-z,\t ]*)(?P<day>[0-9]?[0-9]).(?P<month>[A-Za-z]+).(?P<year>[0-9]+).*$',date)
+  if m:
+    dd= m.group('day')
+    mmm= m.group('month')
+    yyyy= m.group('year')
+    dstr = dd + " " + mmm + " " + yyyy
+    return dstr
+  return None
+
+
+def ExtractTag(itemtag):
+  m = []
+  m = re.match('^(?P<link>\{.*\})?(?P<tag>.*)$',itemtag)
+  tag = m.group('tag')
+  link = m.group('link')
+  if link is not None:
+    if re.search('content',link):
+      tag = "content"+tag
+  return tag
+
 posts = []
 for channel in root:
-  print channel
   for post in channel.findall('item'):
-    title = post.find('title')
-    draftPaper=False
-    if len(title.text) < 40:
-      draftPaper = True
+
+    validPost=True
+
     for item in post.iter():
-      if re.search('.+[^_]status',item.tag):
+      tag = ExtractTag(item.tag)
+      if tag=='status':
         if item.text=='draft':
+          title = post.find('title')
           print 'delete '+item.text+' (title: '+title.text+')'
-          draftPaper=True
-                            
-    if not draftPaper:
-      post.title = title.text
+          validPost = False
+      if tag == 'contentencoded':
+        if item.text is None:
+          validPost = False
+        
+    if validPost:
       for item in post.iter():
-        if re.search('.+content.+[^_]encoded',item.tag):
-          if item.text:
-            post.text = item.text
+        tag = ExtractTag(item.tag)
+        #if re.search('.+content.+[^_]encoded',item.tag):
+        if tag == 'title':
+          post.title= item.text
+        if tag == 'contentencoded':
+          post.text = item.text
+        if item.tag=='pubDate':
+          post.date= DateToStr(item.text)
       posts.append(post)
 
 #print "formatting to TeX"
@@ -58,7 +86,11 @@ tex.write("\\documentclass[11pt]{article}\n")
 
 tex.write("\\usepackage{amsmath}\n")
 tex.write("\\usepackage{amsfonts}\n")
+tex.write("\\setcounter{secnumdepth}{0}\n")
 tex.write("\\begin{document}\n")
+tex.write("\\begin{center}\n")
+tex.write("{\\Huge Research Notebook}\\newline\\newline \n")
+tex.write("\\end{center}\n")
 tex.write("\\tableofcontents\n")
 tex.write("\\clearpage\n")
 ictr = 0
@@ -67,12 +99,13 @@ ictr = 0
 for post in reversed(posts):
   text = post.text
   title = post.title
+  date = post.date
   #recursive = re.compile(r'<.*?>')
   soup = BeautifulSoup(text,'lxml')
   #cleantext = recursive.sub('', text)
 
-  text = re.sub(r'<p.*>(.*)',r'\\\n\n\1',text,re.DOTALL)
-  text = re.sub(r'</p>',r'\\newline\n',text,re.DOTALL)
+  text = re.sub(r'<p.*>(.*)',r'\1',text,re.DOTALL)
+  text = re.sub(r'</p>',r'\n',text,re.DOTALL)
   text = re.sub(r"<em>",r"{\it{",text)
   text = re.sub(r"</em>",r"}}",text)
   text = re.sub(r"\$latex",r"$",text)
@@ -103,8 +136,12 @@ for post in reversed(posts):
 
   title = re.sub(r"_",r"\\_",title)
 
+  ### clean up weird chars
+  text = re.sub(ur'[\u00BF]',r'',text)
   ##prettify text
-  tex.write("\\section{"+title+"}\n\n")
+  sectitle="---Date:"+date+"---"
+  tex.write("\\section*{"+sectitle+"}\\addcontentsline{toc}{section}{"+sectitle+"}\n\n")
+  tex.write("\\subsection{ "+title+"}\n\n")
   tex.write(text+"\n\n")
 tex.write("\\end{document}\n")
 
